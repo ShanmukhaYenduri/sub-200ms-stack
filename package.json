@@ -1,0 +1,26 @@
+{
+  "name": "sub-200ms-stack",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cache-aside metrics API held under 200ms at p95, with the load test that proves it",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "consumer": "node src/consumer.js",
+    "seed": "node db/seed.js",
+    "token": "node scripts/token.js",
+    "test": "node --test test/",
+    "load": "k6 run loadtest/metrics.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.12.0"
+  },
+  "license": "MIT"
+}
