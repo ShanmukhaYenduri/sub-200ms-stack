@@ -1,8 +1,9 @@
 # sub-200ms-stack
 
-Runnable reference implementation of the metrics architecture on my profile:
+Runnable reference implementation of a metrics API held to a 200ms p95 budget:
 Express + PostgreSQL + Redis + Kafka on Docker Compose, with a k6 load test and
-measured p95.
+measured p95. It is the architecture from section 03 of my profile README, drawn
+below so that this repo does not send you somewhere else to see the shape of it.
 
 The reason this exists is narrow. Claiming a service holds under 200ms at p95 is
 free; a claim that can fail a command is not. Everything here is arranged so the
@@ -12,6 +13,52 @@ asserts it as a threshold, and `k6` exits non-zero when it is missed.
 If you only read two files, read `src/queries.js` for the SQL and `db/schema.sql`
 for the indexes. That is where the latency is actually won or lost. Everything
 else is plumbing around them.
+
+## Architecture
+
+```mermaid
+flowchart TB
+    C["Client - k6, loadtest/metrics.js"] --> A["Express API - src/server.js"]
+    A -->|"cache-aside read"| R[("Redis 7.2 - versioned keys, mandatory TTL")]
+    A -->|"miss, indexed query"| P[("PostgreSQL 16.3 - 2M metric_events rows")]
+    A -->|"POST /events, 202"| K{{"Kafka 3.7 - one topic, key is accountId"}}
+    K --> W["Consumer - src/consumer.js, src/anomaly.js"]
+    W -->|"claim, insert, score"| P
+    W -->|"invalidate that account"| R
+```
+
+The read path spends the budget in this order, cheapest hop first, so that every
+stage able to answer early sits in front of every stage that costs more:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant A as API
+    participant R as Redis
+    participant D as Postgres
+    C->>A: GET /metrics for one account and metric
+    A->>A: verify JWT - a hash, no network call
+    A->>R: take a rate-limit token, then GET metrics:v1:account:metric:hour
+    R-->>A: hit, single digit ms
+    A-->>C: 200 with X-Cache HIT
+    Note over A,D: miss - hourlyMetric on metric_events_hot_path_idx, SET with TTL, X-Cache MISS
+```
+
+Writes go the other way and never touch a read synchronously. `POST /events`
+validates, produces to Kafka keyed by `accountId` so one account's events stay
+ordered, and returns 202. The consumer claims the event id, reads the baseline,
+inserts the row, scores it against that baseline, and invalidates the account's
+cache keys after the write rather than before.
+
+Two things this collapses on purpose, against the diagram on my profile: the
+gateway is middleware inside the API process, and the three read services are
+three routes in it. Splitting either one adds a network hop without changing a
+line of the SQL the milliseconds actually go into, and this repo exists to make
+the milliseconds checkable, not to demonstrate boxes. The insights service here
+is arithmetic in `src/anomaly.js` rather than an LLM call, for the same reason:
+a model behind that arrow would make the p95 a measurement of somebody else's
+service.
 
 ## The budget
 
