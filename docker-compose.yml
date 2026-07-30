@@ -69,9 +69,15 @@ services:
       DATABASE_URL: "postgres://metrics:metrics@postgres:5432/metrics"
       REDIS_URL: "redis://redis:6379"
       KAFKA_BROKERS: "kafka:9092"
+      KAFKA_TOPIC: "metric-events"
       JWT_SECRET: "local-dev-only-not-a-real-secret"
       CACHE_TTL_SECONDS: "30"
-      RATE_LIMIT_MAX: "300"
+      # Raised well above the production-shaped default of 300/60s, and only
+      # here. Every request in a k6 run arrives from one address, so a per-IP
+      # limit that is realistic makes the benchmark a measurement of the token
+      # bucket instead of the read path. The limiter is still on and still
+      # exercised; it is just not the narrowest thing in the pipe.
+      RATE_LIMIT_MAX: "60000"
     ports:
       - "3000:3000"
     depends_on:
@@ -89,6 +95,11 @@ services:
       DATABASE_URL: "postgres://metrics:metrics@postgres:5432/metrics"
       REDIS_URL: "redis://redis:6379"
       KAFKA_BROKERS: "kafka:9092"
+      KAFKA_TOPIC: "metric-events"
+      # The consumer never verifies a token, but src/config.js validates the whole
+      # environment on load and refuses to start on a missing variable. That is the
+      # trade: one config module for both processes, and both have to satisfy it.
+      JWT_SECRET: "local-dev-only-not-a-real-secret"
     depends_on:
       api:
         condition: service_started
