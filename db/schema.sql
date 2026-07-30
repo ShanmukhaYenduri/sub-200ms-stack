@@ -26,7 +26,11 @@ CREATE TABLE IF NOT EXISTS insights (
   metric       TEXT        NOT NULL,
   window_start TIMESTAMPTZ NOT NULL,
   window_end   TIMESTAMPTZ NOT NULL,
-  summary      TEXT        NOT NULL,
+  -- The z-score src/anomaly.js produced, stored whether or not it crossed the
+  -- threshold. That keeps this table a continuous record rather than a list of
+  -- alerts, so the threshold can be re-tested against history that already
+  -- exists instead of only against traffic that has not arrived yet.
+  score        NUMERIC(12,4) NOT NULL,
   anomaly      BOOLEAN     NOT NULL DEFAULT false,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
