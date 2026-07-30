@@ -26,6 +26,13 @@ module.exports = {
   databaseUrl: required('DATABASE_URL'),
   redisUrl: required('REDIS_URL'),
   kafkaBrokers: (process.env.KAFKA_BROKERS || 'localhost:9092').split(','),
+
+  // The topic, read here rather than declared as a constant in two files. The
+  // producer in src/server.js and the consumer in src/consumer.js have to agree
+  // on this string, and disagreeing is silent: messages go somewhere real and
+  // nobody ever reads them. One definition removes the failure mode.
+  kafkaTopic: process.env.KAFKA_TOPIC || 'metric-events',
+
   jwtSecret: required('JWT_SECRET'),
 
   // The staleness window we are explicitly choosing to accept on reads.
