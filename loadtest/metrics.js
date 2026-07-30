@@ -65,7 +65,11 @@ const headers = TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {};
 // else; hammering random keys measures Postgres and nothing else. Real traffic is
 // neither, so the mix is roughly 80/20 and the cache hit rate is asserted above.
 const HOT_ACCOUNTS = [101, 102, 103, 104, 105];
-const TOTAL_ACCOUNTS = 20000;
+// Matches ACCOUNTS in db/seed.js. It has to: pick an id the seed never created
+// and the API correctly answers 404, which is a check failure and a
+// http_req_failed breach, so the run fails for a reason that has nothing to do
+// with latency. Overridable for a larger seed.
+const TOTAL_ACCOUNTS = Number(__ENV.TOTAL_ACCOUNTS || 500);
 
 function pickAccount() {
   if (Math.random() < 0.8) {
